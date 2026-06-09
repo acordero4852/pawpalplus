@@ -2,15 +2,35 @@
 
 ## 1. System Design
 
+**Core user actions**
+
+PawPal+ supports three core actions:
+
+1. **Add/manage a pet (and owner profile)** — enter owner info and create a pet with name, species/breed, and care preferences. This anchors all tasks and scheduling.
+2. **Add/edit care tasks** — add walks, feeding, meds, enrichment, or grooming, each with at least a duration and priority, and edit or remove them as needs change.
+3. **Generate and view today's plan** — run the scheduler over tasks and constraints (time, priority, preferences) to produce a clear, ordered daily plan with reasoning.
+
 **a. Initial design**
 
-- Briefly describe your initial UML design.
-- What classes did you include, and what responsibilities did you assign to each?
+My initial UML follows a clear data flow: **Owner → Pet → Task → Scheduler → DailyPlan**. I chose these classes and responsibilities:
+
+- **Owner** — holds owner info, time budget (`available_minutes`), and preferences; manages the list of pets (`add_pet`, `remove_pet`).
+- **Pet** — represents the animal and owns its care tasks; supports `add_task`, `edit_task`, `remove_task`, and `get_tasks`.
+- **Task** — a single unit of care (name, category, duration, priority, optional preferred time, recurring flag); knows how to compare its own priority.
+- **Priority** — an enum (HIGH/MEDIUM/LOW) so sorting and display are unambiguous.
+- **Scheduler** — the "brain": takes tasks plus a time budget and produces a plan (`build_plan`, `sort_tasks`, `fits`). Kept separate from data and UI so it's easy to test.
+- **DailyPlan** — the output; holds ordered `PlanEntry` items, skipped tasks, and totals, and formats itself for display.
+- **PlanEntry** — pairs an assigned `start_time` with a `Task`, keeping scheduling output separate from intrinsic task data.
 
 **b. Design changes**
 
-- Did your design change during implementation?
-- If yes, describe at least one change and why you made it.
+Reviewing the skeleton against the "generate today's plan" action surfaced two gaps:
+
+1. **Missing Owner → Scheduler bridge.** `Scheduler.build_plan` expects a flat `list[Task]`, but tasks live on individual `Pet`s under an `Owner`. Nothing collected them. I added `Owner.all_tasks()` to gather tasks across all pets, so the UI can pass `owner.all_tasks()` plus `owner.available_minutes` straight into the scheduler. This keeps the Scheduler decoupled from domain objects rather than making it traverse Owner→Pet→Task itself.
+
+2. **No stable task identity (potential bottleneck).** `Pet.edit_task`/`remove_task` relied on object identity, which is fragile in a Streamlit UI where form submissions reference ids, not Python objects. I added a `task_id` attribute to `Task` so tasks can be looked up reliably for editing/removal and rendered consistently in the UI.
+
+Both are additive — no relationships were removed.
 
 ---
 

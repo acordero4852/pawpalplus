@@ -1,0 +1,69 @@
+classDiagram
+    %% PawPal+ class design
+    %% Keep this file updated so it matches your final implementation.
+
+    class Owner {
+        +str name
+        +int available_minutes
+        +dict preferences
+        +list~Pet~ pets
+        +add_pet(pet) None
+        +remove_pet(pet) None
+    }
+
+    class Pet {
+        +str name
+        +str species
+        +str breed
+        +list~Task~ tasks
+        +add_task(task) None
+        +edit_task(task, **changes) None
+        +remove_task(task) None
+        +get_tasks(filter_by) list~Task~
+    }
+
+    class Task {
+        +str name
+        +str category
+        +int duration
+        +Priority priority
+        +time preferred_time
+        +bool recurring
+        +is_higher_priority_than(other) bool
+        +__repr__() str
+    }
+
+    class Priority {
+        <<enumeration>>
+        HIGH
+        MEDIUM
+        LOW
+    }
+
+    class Scheduler {
+        +build_plan(tasks, available_minutes) DailyPlan
+        +sort_tasks(tasks) list~Task~
+        +fits(task, remaining_minutes) bool
+    }
+
+    class DailyPlan {
+        +list~PlanEntry~ entries
+        +list~Task~ skipped
+        +int total_minutes
+        +add_entry(time, task) None
+        +to_display() str
+        +summary() str
+    }
+
+    class PlanEntry {
+        +time start_time
+        +Task task
+    }
+
+    Owner "1" --> "*" Pet : owns
+    Pet "1" --> "*" Task : has
+    Task --> Priority : uses
+    Scheduler ..> Task : reads
+    Scheduler ..> DailyPlan : produces
+    DailyPlan "1" --> "*" PlanEntry : contains
+    PlanEntry --> Task : references
