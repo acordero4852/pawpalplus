@@ -1,6 +1,8 @@
+from datetime import time
+
 import streamlit as st
 
-from pawpal_system import Owner, Pet, Priority, Scheduler, Task
+from pawpal_system import Owner, Pet, Priority, Recurrence, Scheduler, Task
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
@@ -73,6 +75,13 @@ with col2:
 with col3:
     priority = st.selectbox("Priority", ["low", "medium", "high"], index=2)
 
+col4, col5 = st.columns(2)
+with col4:
+    use_time = st.checkbox("Set a preferred time", value=True)
+    preferred = st.time_input("Preferred time", value=time(8, 0), disabled=not use_time)
+with col5:
+    recurrence = st.selectbox("Repeats", [r.value for r in Recurrence], index=0)
+
 if st.button("Add task"):
     pet.add_task(
         Task(
@@ -80,21 +89,65 @@ if st.button("Add task"):
             category="general",
             duration=int(duration),
             priority=Priority(priority),
+            preferred_time=preferred if use_time else None,
+            recurrence=Recurrence(recurrence),
         )
     )
 
+scheduler = Scheduler()
+
 if pet.tasks:
-    st.write("Current tasks:")
-    st.table(
-        [
-            {
-                "title": t.name,
-                "duration_minutes": t.duration,
-                "priority": t.priority.value,
-            }
-            for t in pet.tasks
-        ]
+    st.write("**Current tasks**")
+
+    fcol, scol = st.columns(2)
+    with fcol:
+        priority_filter = st.selectbox(
+            "Filter by priority", ["all", "high", "medium", "low"]
+        )
+    with scol:
+        sort_mode = st.selectbox(
+            "Sort by", ["preferred time", "priority"]
+        )
+
+    # Filtering via Pet.get_tasks, then sorting via the Scheduler's methods.
+    selected = (
+        pet.get_tasks()
+        if priority_filter == "all"
+        else pet.get_tasks(filter_by=Priority(priority_filter))
     )
+    if sort_mode == "preferred time":
+        selected = scheduler.sort_by_time(selected)
+    else:
+        selected = scheduler.sort_tasks(selected)
+
+    if selected:
+        st.table(
+            [
+                {
+                    "Task": t.name,
+                    "Duration": f"{t.duration} min",
+                    "Priority": t.priority.value,
+                    "Preferred time": (
+                        t.preferred_time.strftime("%H:%M")
+                        if t.preferred_time
+                        else "—"
+                    ),
+                    "Repeats": t.recurrence.value,
+                    "Done": "✅" if t.completed else "⬜",
+                }
+                for t in selected
+            ]
+        )
+    else:
+        st.info(f"No {priority_filter}-priority tasks.")
+
+    # Surface scheduling conflicts up front, before a plan is even built.
+    conflicts = scheduler.detect_conflicts(pet.tasks)
+    if conflicts:
+        for warning in conflicts:
+            st.warning(warning)
+    else:
+        st.success("No time conflicts among preferred times.")
 else:
     st.info("No tasks yet. Add one above.")
 
@@ -104,15 +157,26 @@ st.subheader("Build Schedule")
 st.caption("Generates today's plan from your tasks and time budget.")
 
 if st.button("Generate schedule"):
-    plan = Scheduler().build_plan(owner.all_tasks(), owner.available_minutes)
+    plan = scheduler.build_plan(owner.all_tasks(), owner.available_minutes)
     if plan.entries:
         st.success(plan.summary())
-        for entry in plan.entries:
-            st.write(repr(entry))
+        st.table(
+            [
+                {
+                    "Start": entry.start_time.strftime("%H:%M"),
+                    "Task": entry.task.name,
+                    "Duration": f"{entry.task.duration} min",
+                    "Priority": entry.task.priority.value,
+                }
+                for entry in plan.entries
+            ]
+        )
     else:
         st.info("No tasks scheduled. Add some tasks first.")
     if plan.skipped:
         st.warning(
-            "Skipped (out of time): "
+            "⏰ Skipped (out of time): "
             + ", ".join(t.name for t in plan.skipped)
         )
+    for warning in plan.warnings:
+        st.warning(warning)

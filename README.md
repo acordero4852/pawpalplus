@@ -2,6 +2,18 @@
 
 You are building **PawPal+**, a Streamlit app that helps a pet owner plan care tasks for their pet.
 
+## ✨ Features
+
+PawPal+ turns a list of pet care tasks into an explainable daily plan. The implemented algorithms are:
+
+- **Priority-based packing** — `Scheduler.build_plan()` greedily fills the owner's time budget, placing higher-priority tasks first (HIGH → MEDIUM → LOW via `Priority.rank`) and using shorter duration as a tiebreaker. Tasks that don't fit are reported as *skipped* rather than dropped silently.
+- **Sorting by priority** — `Scheduler.sort_tasks()` orders tasks by `(priority, duration)` for scheduling decisions.
+- **Sorting by time** — `Scheduler.sort_by_time()` orders tasks chronologically by `preferred_time` (earliest first), with untimed tasks placed last via a stable sort.
+- **Conflict warnings** — `Scheduler.detect_conflicts()` flags any two tasks whose `[start, start + duration)` windows overlap, labeling whether the clash is within the *same pet* or across *different pets*. It is non-fatal: it returns human-readable warning strings and never raises.
+- **Daily & weekly recurrence** — completing a recurring task (`Task.mark_complete()`) automatically spawns its next occurrence (`Task.next_occurrence()`), advancing the due date by one interval (daily = +1 day, weekly = +7 days) and re-enrolling it with the pet.
+- **Filtering** — `Owner.filter_tasks()` narrows tasks by completion status and/or pet name; `Pet.get_tasks()` filters by priority.
+- **Plan explanation** — each `PlanEntry` renders its start time, task, duration, and priority, and `DailyPlan.summary()` reports totals, skipped tasks, and conflict counts.
+
 ## Scenario
 
 A busy pet owner needs help staying consistent with pet care. They want an assistant that can:
@@ -139,12 +151,64 @@ Beyond basic priority packing, PawPal+ implements four "smarter scheduling" beha
 
 ## 📸 Demo Walkthrough
 
-Describe your app in numbered steps so a reader can follow along without watching a video:
+Launch the interactive app with:
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+```bash
+streamlit run app.py
+```
 
-**Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
+### Main UI features
+
+The Streamlit app ([`app.py`](app.py)) lets a user:
+
+- **Set up owner & pet** — enter the owner's name, the daily time budget (minutes), and the pet's name and species.
+- **Add tasks** — give each task a title, duration, priority, an optional preferred time, and a repeat cadence (none / daily / weekly).
+- **Sort & filter the task list** — choose *Sort by: preferred time or priority* (backed by `Scheduler.sort_by_time()` / `sort_tasks()`) and *Filter by priority* (backed by `Pet.get_tasks()`). Results render in a clean table.
+- **See conflict warnings live** — as soon as two preferred times overlap, the app shows a yellow warning; otherwise a green "No time conflicts" confirmation.
+- **Generate today's schedule** — builds the plan within the time budget and renders it as a table, with a success summary plus any skipped tasks and conflicts.
+
+### Example workflow
+
+1. Enter owner **Andy** with **60 minutes** available, and pet **Biscuit** (dog).
+2. Add **Feeding** (10 min, high, 08:00), **Morning walk** (30 min, high, 08:00), **Litter cleanup** (15 min, medium, 09:00), and **Play / enrichment** (20 min, low, 17:00).
+3. In the task list, switch **Sort by** to *preferred time* — tasks reorder chronologically. The app flags that **Feeding** and **Morning walk** both start at 08:00 with a conflict warning.
+4. Click **Generate schedule** — PawPal+ packs the tasks by priority into the time budget and displays the timed plan plus a summary.
+
+### Key Scheduler behaviors shown
+
+- **Sorting** — the schedule is packed in priority order, while the task list can be viewed chronologically.
+- **Conflict warnings** — the two 08:00 tasks raise a *same-pet* overlap warning.
+- **Recurrence** — marking a daily task complete enrolls tomorrow's occurrence automatically.
+- **Filtering** — pending vs. completed and per-pet views.
+
+### Sample CLI output
+
+Running the headless demo (`python main.py`) exercises the same logic without the UI:
+
+```text
+Today's Schedule for Andy
+========================================
+08:00 — Feeding (10 min) [priority: high]
+08:10 — Morning walk (30 min) [priority: high]
+08:40 — Litter cleanup (15 min) [priority: medium]
+08:55 — Play / enrichment (20 min) [priority: low]
+----------------------------------------
+Scheduled 4 task(s), 75 min total. 1 time conflict(s) detected.
+
+Tasks sorted by preferred time
+========================================
+08:00 — Feeding
+08:00 — Morning walk
+09:00 — Litter cleanup
+17:00 — Play / enrichment
+
+Filters
+========================================
+Pending (3): Feeding, Morning walk, Litter cleanup
+Completed (1): Play / enrichment
+Biscuit's tasks (2): Feeding, Morning walk
+
+Conflict warnings
+========================================
+⚠️  Conflict (same pet): Feeding (Biscuit) at 08:00 overlaps Morning walk (Biscuit) at 08:00.
+```

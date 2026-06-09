@@ -1,0 +1,97 @@
+classDiagram
+    %% PawPal+ final class design — matches pawpal_system.py
+    %% Data flow: Owner -> Pet -> Task -> Scheduler -> DailyPlan
+
+    class Owner {
+        +str name
+        +int available_minutes
+        +dict preferences
+        +list~Pet~ pets
+        +add_pet(pet) None
+        +remove_pet(pet) None
+        +all_tasks() list~Task~
+        +filter_tasks(completed, pet_name) list~Task~
+    }
+
+    class Pet {
+        +str name
+        +str species
+        +str breed
+        +list~Task~ tasks
+        +add_task(task) None
+        +edit_task(task_id, **changes) None
+        +remove_task(task_id) None
+        +get_tasks(filter_by) list~Task~
+        -_find(task_id) Task
+    }
+
+    class Task {
+        +str task_id
+        +str name
+        +str category
+        +int duration
+        +Priority priority
+        +time preferred_time
+        +Recurrence recurrence
+        +date due_date
+        +bool completed
+        +Pet pet
+        +recurring() bool
+        +next_occurrence() Task
+        +mark_complete() Task
+        +is_higher_priority_than(other) bool
+        +__repr__() str
+    }
+
+    class Priority {
+        <<enumeration>>
+        HIGH
+        MEDIUM
+        LOW
+        +rank() int
+    }
+
+    class Recurrence {
+        <<enumeration>>
+        NONE
+        DAILY
+        WEEKLY
+        +delta() timedelta
+    }
+
+    class Scheduler {
+        +time day_start
+        +build_plan(tasks, available_minutes) DailyPlan
+        +detect_conflicts(tasks) list~str~
+        +sort_tasks(tasks) list~Task~
+        +sort_by_time(tasks) list~Task~
+        +fits(task, remaining_minutes) bool
+        -_end_time(task) time
+        -_conflict_message(first, second) str
+    }
+
+    class DailyPlan {
+        +list~PlanEntry~ entries
+        +list~Task~ skipped
+        +list~str~ warnings
+        +int total_minutes
+        +add_entry(start_time, task) None
+        +to_display() str
+        +summary() str
+    }
+
+    class PlanEntry {
+        +time start_time
+        +Task task
+        +__repr__() str
+    }
+
+    Owner "1" --> "*" Pet : owns
+    Pet "1" --> "*" Task : has
+    Task "*" --> "1" Pet : belongs to
+    Task --> Priority : uses
+    Task --> Recurrence : repeats by
+    Scheduler ..> Task : reads & sorts
+    Scheduler ..> DailyPlan : produces
+    DailyPlan "1" --> "*" PlanEntry : contains
+    PlanEntry --> Task : references

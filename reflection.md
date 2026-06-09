@@ -61,6 +61,16 @@ This is reasonable here because the value is the heads-up ("you can't be in two 
 - Describe one moment where you did not accept an AI suggestion as-is.
 - How did you evaluate or verify what the AI suggested?
 
+**c. AI Strategy**
+
+**Most effective AI features.** The biggest wins came from giving the assistant the *actual* source file and asking grounded, comparative questions — e.g. "based on my final `pawpal_system.py`, what should change in my UML?" Because it could read the real code, it produced an accurate diff (the new `Recurrence` enum, the `Task.pet` back-reference, the conflict helpers) instead of guessing. Its ability to generate runnable `pytest` cases and then *run them* to confirm they passed turned testing into a fast feedback loop. Edge-case brainstorming was also valuable: asking "what should I test for sorting and recurrence?" surfaced cases I hadn't considered, like the midnight-wrap bug in `_end_time()`.
+
+**A suggestion I modified.** When wiring up the Streamlit display, the assistant initially leaned toward having the scheduler reach into `Owner → Pet → Task` to gather and render tasks itself. I rejected that to keep the `Scheduler` decoupled from the domain objects — instead I kept `Owner.all_tasks()` as the bridge and had the scheduler operate on a plain `list[Task]`. This preserved the clean one-way data flow and kept the scheduler unit-testable in isolation.
+
+**Separate sessions per phase.** Splitting work into phase-specific sessions — design/UML, implementation, testing, and documentation — kept each conversation focused on one mental model. The testing session wasn't cluttered with design debate, and the docs session could treat the code as finished and just describe it. It also made it easy to re-enter a phase later (revising the UML) without dredging through unrelated context.
+
+**Being the lead architect.** The clearest lesson: the AI is a fast, literal implementer, but the *architecture is mine to own*. It will happily produce working code that quietly couples layers or drifts from the design if I don't hold the line. My job was to set the invariants (one-way data flow, scheduler stays decoupled, warnings are non-fatal), feed it the real artifacts so its answers were grounded, and verify every suggestion against those principles and the tests. The AI accelerated the *how*; I stayed responsible for the *what* and *why*.
+
 ---
 
 ## 4. Testing and Verification
