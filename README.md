@@ -75,14 +75,37 @@ Sample test output:
 
 ## 📐 Smarter Scheduling
 
-> Fill in once you've implemented scheduling logic.
+Beyond basic priority packing, PawPal+ implements four "smarter scheduling" behaviors. Each is summarized below and documented in detail after the table.
 
 | Feature | Method(s) | Notes |
 |---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+| Task sorting | `Scheduler.sort_tasks()`, `Scheduler.sort_by_time()` | Priority + duration, or chronological by preferred time |
+| Filtering | `Owner.filter_tasks()` | By completion status and/or pet name |
+| Conflict detection | `Scheduler.detect_conflicts()` | Warns on overlapping preferred-time windows; never crashes |
+| Recurring tasks | `Task.mark_complete()`, `Task.next_occurrence()` | Daily/weekly tasks auto-spawn the next occurrence |
+
+### Sorting behavior
+
+- **`Scheduler.sort_tasks(tasks)`** — the scheduler's default ordering: highest priority first (`Priority.rank`), with shorter tasks first as a tiebreaker. This is what `build_plan` uses to decide what to fit into the time budget.
+- **`Scheduler.sort_by_time(tasks)`** — orders tasks chronologically by `preferred_time` (earliest first). Tasks with no preferred time are placed last while preserving their original relative order (a stable sort).
+
+### Filtering behavior
+
+- **`Owner.filter_tasks(completed=None, pet_name=None)`** — returns tasks across all pets, optionally narrowed by:
+  - `completed` — keep only completed (`True`) or only pending (`False`) tasks.
+  - `pet_name` — keep only tasks belonging to the named pet (case-insensitive).
+  - Both filters are optional; passing neither returns every task. It lives on `Owner` because that's the object that knows the pet → task relationship.
+
+### Conflict detection logic
+
+- **`Scheduler.detect_conflicts(tasks)`** — a lightweight, non-fatal check that returns a list of human-readable warning strings (never raises). Two tasks conflict when their `[start, start + duration)` windows overlap — interval overlap, not just identical start times — whether they belong to the **same pet** or **different pets** (the message labels which). Tasks without a `preferred_time` are ignored. `build_plan` stores the results on `DailyPlan.warnings`, and `DailyPlan.summary()` reports the count.
+  - Helpers: `Scheduler._end_time()` computes a task's finish time via `timedelta`; `Scheduler._conflict_message()` formats each warning.
+
+### Recurring task logic
+
+- **`Task.mark_complete()`** — marks a task complete and, if it recurs, automatically creates the next occurrence and adds it to the same pet (via the back-reference set in `Pet.add_task`). Returns the new `Task` (or `None` for one-off tasks).
+- **`Task.next_occurrence()`** — builds the next instance: a fresh, incomplete copy with a new id and the `due_date` advanced by one interval.
+- **`Recurrence`** enum (`NONE` / `DAILY` / `WEEKLY`) with a `.delta` property supplying the `timedelta` between occurrences (daily = +1 day, weekly = +7 days). A legacy `recurring=True` flag is treated as daily for backward compatibility.
 
 ## 📸 Demo Walkthrough
 

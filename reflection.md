@@ -43,8 +43,9 @@ Both are additive — no relationships were removed.
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+One deliberate tradeoff is that **conflict detection and plan placement use two different notions of "when."** `build_plan` greedily packs tasks back-to-back by priority from `DAY_START`, so the *placed* schedule never physically overlaps. Separately, `detect_conflicts` compares each task's `preferred_time` window (`[start, start + duration)`) and warns when those *intended* times collide. So a task flagged as conflicting at 08:00 may still print at 08:10 in the final plan — the warnings describe the owner's intentions, not the placed schedule.
+
+This is reasonable here because the value is the heads-up ("you can't be in two places at once"), while the packer just fits everything into the time budget. Treating `preferred_time` as a hard constraint would turn scheduling into a much harder constraint-satisfaction problem; for one owner with a handful of daily tasks, a lightweight non-blocking warning plus priority packing delivers most of the benefit at far less complexity. I also used interval-overlap detection rather than exact time matches, so near-misses like 08:00 vs 08:15 are still caught.
 
 ---
 
