@@ -59,19 +59,49 @@ Scheduled 4 task(s), 75 min total.
 
 ## 🧪 Testing PawPal+
 
+Run the full test suite from the project root:
+
 ```bash
-# Run the full test suite:
-pytest
-
-# Run with coverage:
-pytest --cov
+python -m pytest
 ```
 
-Sample test output:
+### What the tests cover
+
+The suite in [`tests/test_pawpal.py`](tests/test_pawpal.py) exercises the core scheduling behaviors:
+
+- **Task status** — `mark_complete()` flips a task from incomplete to complete.
+- **Pet task management** — adding a task to a `Pet` increases its task count.
+- **Sorting correctness** — `Scheduler.sort_by_time()` returns tasks in chronological order by `preferred_time`, and places untimed tasks last.
+- **Recurrence logic** — completing a daily task spawns a fresh, incomplete occurrence with a new id, due the following day, auto-added to the pet; one-off tasks spawn nothing.
+- **Conflict detection** — `Scheduler.detect_conflicts()` flags tasks whose preferred times overlap, while leaving back-to-back (touching but non-overlapping) tasks unflagged.
+
+### Sample test output
 
 ```
-# Paste your pytest output here
+============================= test session starts ==============================
+platform darwin -- Python 3.10.4, pytest-9.0.3, pluggy-1.6.0
+cachedir: .pytest_cache
+rootdir: /Users/andycordero/Desktop/CodePath/AI 110/pawpalplus
+plugins: anyio-4.7.0
+collecting ... collected 8 items
+
+tests/test_pawpal.py::test_mark_complete_changes_status PASSED           [ 12%]
+tests/test_pawpal.py::test_add_task_increases_pet_task_count PASSED      [ 25%]
+tests/test_pawpal.py::test_sort_by_time_returns_chronological_order PASSED [ 37%]
+tests/test_pawpal.py::test_sort_by_time_places_untimed_tasks_last PASSED [ 50%]
+tests/test_pawpal.py::test_completing_daily_task_creates_next_day_occurrence PASSED [ 62%]
+tests/test_pawpal.py::test_completing_non_recurring_task_creates_no_occurrence PASSED [ 75%]
+tests/test_pawpal.py::test_scheduler_flags_tasks_at_same_time PASSED     [ 87%]
+tests/test_pawpal.py::test_scheduler_allows_back_to_back_tasks PASSED    [100%]
+
+============================== 8 passed in 0.01s ===============================
 ```
+
+### Confidence Level
+
+Rating: ★★★☆☆ (3 / 5)
+
+All 8 tests pass and they cover the three highest-risk behaviors (sorting, recurrence, conflict detection) along with their key boundary cases. Confidence is held at 3 stars because several known edge cases are not yet tested — notably the midnight-wrap case in `_end_time()` (a task ending after 00:00 reports the wrong finish time), recurrence with no `due_date` defaulting to "today," and the divergence between `build_plan`'s priority ordering and the chronological `sort_by_time` view. Reliability for the tested paths is high; full-system confidence will rise as these gaps are closed.
 
 ## 📐 Smarter Scheduling
 
